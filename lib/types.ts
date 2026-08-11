@@ -11,6 +11,8 @@ export interface Settings {
   chunkSize: number;
   /** Chunk overlap in characters. */
   chunkOverlap: number;
+  /** Manual VRAM override (GiB) for model recommendations when GPU detection fails. */
+  vramGiB: number | null;
 }
 
 export interface ModelInfo {

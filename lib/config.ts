@@ -11,6 +11,7 @@ export const DEFAULT_SETTINGS: Settings = {
   topK: 6,
   chunkSize: 3200,
   chunkOverlap: 600,
+  vramGiB: null,
 };
 
 export function dataDir(): string {

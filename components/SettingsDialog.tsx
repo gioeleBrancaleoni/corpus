@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { GpuInfo } from "@/lib/gpu";
+import { recommendModels } from "@/lib/model-recommend";
 import type { ModelInfo, Settings } from "@/lib/types";
 import { type ConnectionState, StatusDot } from "./StatusDot";
 
@@ -18,6 +20,7 @@ export function SettingsDialog({ open, onClose, onSaved }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [form, setForm] = useState<Settings | null>(null);
   const [models, setModels] = useState<ModelInfo[]>([]);
+  const [gpu, setGpu] = useState<GpuInfo | null>(null);
   const [conn, setConn] = useState<ConnectionState>("checking");
   const [connMsg, setConnMsg] = useState("Checking…");
   const [saving, setSaving] = useState(false);
@@ -57,6 +60,14 @@ export function SettingsDialog({ open, onClose, onSaved }: Props) {
       const s = (await res.json()) as Settings;
       setForm(s);
       void checkHost(s.ollamaHost);
+    })();
+    void (async () => {
+      try {
+        const res = await fetch("/api/gpu");
+        setGpu((await res.json()) as GpuInfo);
+      } catch {
+        setGpu({ detected: false });
+      }
     })();
   }, [open, checkHost]);
 
@@ -148,6 +159,14 @@ export function SettingsDialog({ open, onClose, onSaved }: Props) {
               on your LAN.
             </p>
           </div>
+
+          <GpuRecommendation
+            gpu={gpu}
+            manualVram={form.vramGiB}
+            onManualVram={(v) => update({ vramGiB: v })}
+            models={models}
+            onUseRecommended={(chat, embed) => update({ chatModel: chat, embedModel: embed })}
+          />
 
           <div className="grid grid-cols-2 gap-3">
             <div className={field}>
@@ -243,6 +262,94 @@ export function SettingsDialog({ open, onClose, onSaved }: Props) {
         </form>
       )}
     </dialog>
+  );
+}
+
+function GpuRecommendation({
+  gpu,
+  manualVram,
+  onManualVram,
+  models,
+  onUseRecommended,
+}: {
+  gpu: GpuInfo | null;
+  manualVram: number | null;
+  onManualVram(v: number | null): void;
+  models: ModelInfo[];
+  onUseRecommended(chat: string, embed: string): void;
+}) {
+  const vram = gpu?.detected ? gpu.vramGiB : manualVram;
+  const rec = vram !== null && vram !== undefined ? recommendModels(vram, models.map((m) => m.name)) : null;
+
+  return (
+    <div className="rounded-md border border-line bg-surface/60 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium text-muted">Hardware</p>
+        {gpu === null ? (
+          <span className="text-xs text-muted">Detecting GPU…</span>
+        ) : gpu.detected ? (
+          <span className="text-xs">
+            {gpu.name} · <span className="font-medium">{gpu.vramGiB} GiB VRAM</span>
+          </span>
+        ) : (
+          <label className="flex items-center gap-1.5 text-xs text-muted">
+            No NVIDIA GPU detected — VRAM (GiB):
+            <input
+              type="number"
+              min={0}
+              max={2048}
+              step={1}
+              value={manualVram ?? ""}
+              placeholder="e.g. 8"
+              onChange={(e) => onManualVram(e.target.value === "" ? null : Number(e.target.value))}
+              className="w-16 rounded-md border border-line bg-bg px-1.5 py-0.5 text-xs text-ink"
+              aria-label="VRAM in GiB"
+            />
+          </label>
+        )}
+      </div>
+
+      {rec && (
+        <div className="mt-2 space-y-1.5">
+          <SuggestionRow kind="Chat" s={rec.chat} />
+          <SuggestionRow kind="Embedding" s={rec.embed} />
+          <button
+            type="button"
+            onClick={() => onUseRecommended(rec.chat.model, rec.embed.model)}
+            className="mt-1 rounded-md border border-line bg-bg px-2.5 py-1 text-xs font-medium hover:border-muted/50"
+          >
+            Use recommended models
+          </button>
+        </div>
+      )}
+      {gpu !== null && !gpu.detected && manualVram === null && (
+        <p className="mt-2 text-xs text-muted">
+          Enter your VRAM (or 0 for CPU-only) to get model recommendations.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function SuggestionRow({
+  kind,
+  s,
+}: {
+  kind: string;
+  s: { model: string; installed: boolean; pullCommand?: string };
+}) {
+  return (
+    <p className="flex flex-wrap items-center gap-x-2 text-xs">
+      <span className="w-16 text-muted">{kind}</span>
+      <span className="font-mono">{s.model}</span>
+      {s.installed ? (
+        <span className="text-primary">installed ✓</span>
+      ) : (
+        <code className="rounded bg-bg px-1.5 py-0.5 font-mono text-[11px] text-muted">
+          {s.pullCommand}
+        </code>
+      )}
+    </p>
   );
 }
 

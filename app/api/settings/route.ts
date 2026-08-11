@@ -18,6 +18,13 @@ function validationError(patch: Partial<Settings>): string | null {
   if (patch.chunkOverlap !== undefined && (patch.chunkOverlap < 0 || patch.chunkOverlap >= size)) {
     return "chunkOverlap must be >= 0 and smaller than chunkSize";
   }
+  if (
+    patch.vramGiB !== undefined &&
+    patch.vramGiB !== null &&
+    (typeof patch.vramGiB !== "number" || patch.vramGiB < 0 || patch.vramGiB > 2048)
+  ) {
+    return "vramGiB must be a number of GiB (0–2048) or null";
+  }
   if (patch.ollamaHost !== undefined) {
     try {
       const url = new URL(patch.ollamaHost);
