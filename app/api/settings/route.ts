@@ -25,6 +25,9 @@ function validationError(patch: Partial<Settings>): string | null {
   ) {
     return "vramGiB must be a number of GiB (0–2048) or null";
   }
+  if (patch.maxUploadMB !== undefined && (patch.maxUploadMB < 1 || patch.maxUploadMB > 1024)) {
+    return "maxUploadMB must be between 1 and 1024";
+  }
   if (patch.ollamaHost !== undefined) {
     try {
       const url = new URL(patch.ollamaHost);

@@ -13,6 +13,8 @@ export interface Settings {
   chunkOverlap: number;
   /** Manual VRAM override (GiB) for model recommendations when GPU detection fails. */
   vramGiB: number | null;
+  /** Maximum accepted upload size in MB. */
+  maxUploadMB: number;
 }
 
 export interface ModelInfo {

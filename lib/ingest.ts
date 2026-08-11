@@ -138,7 +138,8 @@ export async function runIngest(deps?: IngestDeps): Promise<IngestProgress> {
   }
 }
 
-async function ingestOne(
+/** Extract → chunk → embed → store ONE file. Exported for the upload flow. */
+export async function ingestOne(
   rootDir: string,
   relPath: string,
   settings: Settings,

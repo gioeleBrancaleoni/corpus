@@ -12,6 +12,7 @@ export const DEFAULT_SETTINGS: Settings = {
   chunkSize: 3200,
   chunkOverlap: 600,
   vramGiB: null,
+  maxUploadMB: 25,
 };
 
 export function dataDir(): string {
