@@ -132,6 +132,14 @@ basename, collisions get `-2`/`-3` suffixes (`COPYFILE_EXCL`, never overwrite), 
 failing the upload. Only that one file is indexed (`ingestOne`), so uploads are immediately
 queryable without a full re-scan.
 
+**Stale-index guard:** the single-file path shares the same staleness detection as the full run
+(`indexIsStale`: different `embedModel` meta or older `indexFormat`, empty index never stale) but
+resolves it differently. A full "Index library" wipes and rebuilds; an upload must not surprise
+the user by wiping everything, and must never mix vector representations either — so on a stale
+index the file is placed in the library but **not** indexed inline (`indexed: false`, with a
+"run Index library to rebuild" reason), and the next full run picks it up. Silently corrupting
+retrieval is the one outcome that is never allowed.
+
 ## Auth timing
 
 Token checks hash both sides with SHA-256 and compare via `crypto.timingSafeEqual` — fixed

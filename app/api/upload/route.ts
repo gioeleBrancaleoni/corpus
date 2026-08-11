@@ -5,7 +5,7 @@ import { authorize, unauthorized } from "@/lib/auth";
 import { loadSettings } from "@/lib/config";
 import { extractText } from "@/lib/extract";
 import { PathEscapeError, isSupported, resolveSafe } from "@/lib/fs-safe";
-import { INDEX_FORMAT, ingestOne } from "@/lib/ingest";
+import { INDEX_FORMAT, indexIsStale, ingestOne } from "@/lib/ingest";
 import { embed } from "@/lib/ollama";
 import { openStore } from "@/lib/store";
 import {
@@ -101,18 +101,33 @@ export async function POST(req: Request) {
     const destPath = resolveSafe(settings.rootDir, relPath);
     fs.copyFileSync(tmpPath, destPath, fs.constants.COPYFILE_EXCL);
 
-    // Index just this file so it's immediately queryable.
+    // Index just this file so it's immediately queryable — but NEVER mix
+    // vector representations: if the existing index was written with a
+    // different embedding model or an older vector format, defer to the next
+    // full "Index library" run (which wipes and rebuilds) instead of adding
+    // an incompatible vector. The file is already placed either way.
     let indexed = true;
     const store = openStore();
     try {
-      await ingestOne(settings.rootDir, relPath, settings, store, embed);
-      if (store.getMeta("embedModel") === undefined) store.setMeta("embedModel", settings.embedModel);
-      if (store.getMeta("indexFormat") === undefined) store.setMeta("indexFormat", INDEX_FORMAT);
-    } catch (err) {
-      indexed = false;
-      reason = `${reason ? `${reason}; ` : ""}indexing failed: ${
-        err instanceof Error ? err.message : "unknown error"
-      } — re-run Index library`;
+      if (indexIsStale(store, settings)) {
+        indexed = false;
+        reason = `${reason ? `${reason}; ` : ""}existing index uses a different embedding model/format — run Index library to rebuild`;
+      } else {
+        try {
+          await ingestOne(settings.rootDir, relPath, settings, store, embed);
+          if (store.getMeta("embedModel") === undefined) {
+            store.setMeta("embedModel", settings.embedModel);
+          }
+          if (store.getMeta("indexFormat") === undefined) {
+            store.setMeta("indexFormat", INDEX_FORMAT);
+          }
+        } catch (err) {
+          indexed = false;
+          reason = `${reason ? `${reason}; ` : ""}indexing failed: ${
+            err instanceof Error ? err.message : "unknown error"
+          } — re-run Index library`;
+        }
+      }
     } finally {
       store.close();
     }

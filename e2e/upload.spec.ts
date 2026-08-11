@@ -110,6 +110,77 @@ test("unsupported types and oversized files are rejected", async ({ request }) =
   await request.put("/api/settings", { data: { maxUploadMB: 25 } });
 });
 
+test("a stale index defers indexing instead of mixing vector formats", async ({ request }) => {
+  // Poison the live DB's format marker so the index (non-empty after the
+  // earlier uploads) is incompatible with the app's current vector format.
+  // createRequire anchored at the real repo root: Playwright's transpile
+  // cache breaks native-module path resolution for plain imports.
+  const { createRequire } = await import("node:module");
+  const requireFromRepo = createRequire(path.join(__dirname, "..", "package.json"));
+  const Database = requireFromRepo("better-sqlite3") as typeof import("better-sqlite3");
+  const dbPath = path.join(__dirname, ".data", "corpus.db");
+
+  const withDb = <T>(fn: (db: import("better-sqlite3").Database) => T): T => {
+    const db = new Database(dbPath);
+    try {
+      return fn(db);
+    } finally {
+      db.close();
+    }
+  };
+
+  withDb((db) => {
+    const { c } = db.prepare("SELECT COUNT(*) AS c FROM files").get() as { c: number };
+    expect(c).toBeGreaterThan(0);
+    db.prepare(
+      "INSERT INTO meta (key, value) VALUES ('indexFormat', 'legacy-mixed') " +
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    ).run();
+  });
+
+  const res = await request.post("/api/upload", {
+    multipart: {
+      file: {
+        name: "deferred.md",
+        mimeType: "text/markdown",
+        buffer: Buffer.from("# Deferred\n\nThis lands on disk but must not be indexed yet.\n"),
+      },
+    },
+  });
+  expect(res.status()).toBe(200);
+  const data = (await res.json()) as { path: string; indexed: boolean; reason?: string };
+  expect(data.indexed).toBe(false);
+  expect(data.reason).toContain("run Index library");
+  // the file IS placed in the library…
+  expect(fs.existsSync(path.join(UPLOAD_ROOT, data.path))).toBe(true);
+
+  // …but the store was not mutated with a mixed-format vector
+  withDb((db) => {
+    expect(db.prepare("SELECT id FROM files WHERE path = ?").get(data.path)).toBeUndefined();
+    const meta = db.prepare("SELECT value FROM meta WHERE key = 'indexFormat'").get() as {
+      value: string;
+    };
+    expect(meta.value).toBe("legacy-mixed");
+  });
+
+  // a full re-index heals everything (wipe + rebuild in the current format)
+  const start = await request.post("/api/ingest");
+  expect(start.ok()).toBe(true);
+  await expect
+    .poll(
+      async () => ((await (await request.get("/api/ingest/status")).json()) as { state: string }).state,
+      { timeout: 30_000 },
+    )
+    .toBe("done");
+  withDb((db) => {
+    expect(db.prepare("SELECT id FROM files WHERE path = ?").get(data.path)).toBeDefined();
+    const meta = db.prepare("SELECT value FROM meta WHERE key = 'indexFormat'").get() as {
+      value: string;
+    };
+    expect(meta.value).toBe("unit-f32-v1");
+  });
+});
+
 test("duplicate names are de-duplicated, never overwritten", async ({ request }) => {
   const send = () =>
     request.post("/api/upload", {

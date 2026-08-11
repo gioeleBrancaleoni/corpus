@@ -52,6 +52,21 @@ export function cancelIngest(): void {
   if (progress.state === "running") cancelled = true;
 }
 
+/**
+ * True when the existing index is incompatible with the current settings —
+ * written with a different embedding model, or in an older stored vector
+ * format. An empty index is never stale. Callers must either wipe+rebuild
+ * (full ingest) or refuse to add vectors (single-file upload): mixing
+ * representations silently corrupts retrieval.
+ */
+export function indexIsStale(store: Store, settings: Settings): boolean {
+  if (store.listFiles().length === 0) return false;
+  return (
+    store.getMeta("embedModel") !== settings.embedModel ||
+    store.getMeta("indexFormat") !== INDEX_FORMAT
+  );
+}
+
 interface IngestDeps {
   embedFn?: typeof ollamaEmbed;
   store?: Store;
@@ -86,12 +101,7 @@ export async function runIngest(deps?: IngestDeps): Promise<IngestProgress> {
     // Changing the embedding model changes vector dimensions, and an index
     // written in an older vector format can't be mixed with the current one:
     // both cases rebuild from scratch.
-    const indexedModel = store.getMeta("embedModel");
-    const indexedFormat = store.getMeta("indexFormat");
-    if (
-      (indexedModel !== undefined && indexedModel !== settings.embedModel) ||
-      indexedFormat !== INDEX_FORMAT
-    ) {
+    if (indexIsStale(store, settings)) {
       store.wipe();
       saveSettings({ embedDim: null });
     }

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cancelIngest, getProgress, runIngest } from "@/lib/ingest";
+import { cancelIngest, getProgress, indexIsStale, runIngest } from "@/lib/ingest";
 import { type Store, openStore } from "@/lib/store";
 import type { Settings } from "@/lib/types";
 import { DEFAULT_SETTINGS } from "@/lib/config";
@@ -116,6 +116,15 @@ describe("runIngest", () => {
     expect(result.fileErrors[0]!.path).toBe("broken.pdf");
     // the other three still made it
     expect(store.listFiles()).toHaveLength(3);
+  });
+
+  it("indexIsStale: empty store never stale; mismatched model or format is", async () => {
+    expect(indexIsStale(store, settings)).toBe(false); // empty store
+    await runIngest({ embedFn, store, settings });
+    expect(indexIsStale(store, settings)).toBe(false); // matching model + format
+    expect(indexIsStale(store, { ...settings, embedModel: "other-model" })).toBe(true);
+    store.setMeta("indexFormat", "legacy-raw-f32");
+    expect(indexIsStale(store, settings)).toBe(true); // old vector format
   });
 
   it("errors cleanly when no root is configured", async () => {
