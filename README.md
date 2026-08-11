@@ -1,64 +1,49 @@
 # Corpus
 
+**Chat with your own documents — 100% locally.** Corpus indexes a folder of files and answers
+questions about them using a local LLM through [Ollama](https://ollama.com). Nothing you index and
+nothing you ask ever leaves your machine (or your LAN). No cloud, no API keys, no accounts.
+
+<!-- Badges: replace OWNER/REPO once pushed to GitHub -->
 [![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
+![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)
 
-Chat with your own documents — **without sending a single byte to any cloud**.
-
-Corpus is a single-machine web app: point it at a folder, browse and preview the files in it, and
-ask questions that a local LLM answers with **grounded, clickable citations** back to the exact
-source file. All inference (embeddings + chat) runs through [Ollama](https://ollama.com), either on
-the same machine or on another box on your LAN.
-
-> **The privacy promise:** your documents, your questions, and the answers never leave your
-> infrastructure. Corpus makes exactly **zero** outbound network calls except to the Ollama host
-> you configure. No fonts, no analytics, no update checks, no telemetry. This is the product's
-> whole reason to exist.
+> **Why local?** Corpus is built for documents you *can't* send to a cloud provider — legal, medical,
+> HR, financial, anything GDPR-relevant. The privacy guarantee isn't a feature bolted on; it's the
+> reason the project exists. At runtime the app makes **zero outbound calls** except to the Ollama
+> host you configure.
 
 ![30-second demo](docs/demo.gif) <!-- TODO: record demo GIF -->
 
-## Who it's for
+---
 
-People and small teams with sensitive documents — legal, medical, HR, financial, GDPR-relevant —
-who want the "chat with my documents" experience without OpenAI, Anthropic, or any hosted API.
+## What it does
 
-## Prerequisites
+- **Browse** a folder of documents in a file tree — preview Markdown, PDFs, code, CSV and text; **download** any file.
+- **Ask questions** and get answers grounded in your documents via Retrieval-Augmented Generation (RAG).
+- **Clickable citations** — every `[n]` in an answer links back to the exact source file it came from.
+- **Local or remote Ollama** — run the model on the same machine, or point Corpus at a beefier GPU
+  box elsewhere on your network. A weak laptop can drive a strong server.
+- **Cross-platform** — first-class support for **Windows and Linux**, verified in CI on both.
 
-- [Node.js](https://nodejs.org) ≥ 20
-- [Ollama](https://ollama.com) running somewhere you can reach, with two models pulled:
+## Tech stack
 
-```
-ollama pull nomic-embed-text
-ollama pull qwen2.5:7b
-```
+| Layer            | Choice                                                        |
+|------------------|---------------------------------------------------------------|
+| App              | Next.js (App Router) + TypeScript (`strict`)                  |
+| UI               | React + Tailwind CSS                                          |
+| Storage          | SQLite (`better-sqlite3`) — single file, no server            |
+| Vector search    | In-process cosine similarity (swappable `VectorStore` interface) |
+| Inference        | Ollama HTTP API — embeddings + chat, streamed                 |
+| Tests            | Vitest (unit) + Playwright (E2E)                              |
+| CI               | GitHub Actions, matrix on Ubuntu **and** Windows              |
 
-(Any chat model works — pick it in Settings. `nomic-embed-text` is the default embedding model.)
-
-## Quick start — Linux / macOS (bash)
-
-```bash
-git clone https://github.com/OWNER/REPO corpus && cd corpus
-npm ci
-npm run build
-npm start          # → http://localhost:3000
-```
-
-## Quick start — Windows (PowerShell)
-
-```powershell
-git clone https://github.com/OWNER/REPO corpus; cd corpus
-npm ci
-npm run build
-npm start          # → http://localhost:3000
-```
-
-Then, in the app: **Settings** → set your documents folder and Ollama host → **Index library** →
-ask your first question.
-
-## Using a GPU box on your LAN
-
-A weak laptop can use a beefy machine for inference. On the GPU box, make Ollama listen on the
-network (`OLLAMA_HOST=0.0.0.0 ollama serve`), then in Corpus **Settings** set the Ollama host to
-`http://192.168.x.x:11434`. That machine is the only thing Corpus will ever talk to.
+> **On the vector store:** for a personal corpus (up to tens of thousands of chunks), a brute-force
+> cosine search in TypeScript is a few milliseconds and needs **no native vector extension** — which
+> is what keeps the "just works on Windows and Linux" promise honest. It lives behind a `VectorStore`
+> interface, so swapping in `sqlite-vec` or LanceDB later is a one-file change. See
+> [`DECISIONS.md`](DECISIONS.md).
 
 ## Architecture
 
@@ -97,35 +82,91 @@ network (`OLLAMA_HOST=0.0.0.0 ollama serve`), then in Corpus **Settings** set th
 
 ## How retrieval works
 
-1. **Index.** Corpus walks your folder (skipping dotfiles, `node_modules`, and anything listed in
-   an optional `.corpusignore` file), extracts plain text per format (`.txt`/`.md`/code directly,
-   `.pdf` via unpdf, `.docx` via mammoth, `.csv` as text), splits it into overlapping ~3200-char
-   chunks (~800 tokens), embeds each chunk with the embedding model, and stores everything in a
-   local SQLite file. Re-indexing is incremental: unchanged files (same sha256 + mtime) are skipped.
-2. **Ask.** Your question is embedded with the same model, and the top-k chunks by cosine
-   similarity are retrieved (brute force over Float32 vectors — milliseconds for a personal
-   corpus).
-3. **Answer.** The chat model receives a strict system prompt: *answer only from the provided
-   excerpts, cite them as [n], say "I don't know from these documents" otherwise*. The answer
-   streams token by token; every `[n]` citation is a link that highlights its source and opens the
-   file it came from.
+1. **Index.** Corpus walks your folder (skipping dotfiles, `node_modules`, and anything in an
+   optional `.corpusignore`), extracts plain text per format, splits it into overlapping chunks,
+   embeds each chunk, and stores everything in a local SQLite file. Re-indexing is incremental:
+   unchanged files (same sha256 + mtime) are skipped.
+2. **Ask.** Your question is embedded with the same model used to index your documents, and Corpus
+   finds the most similar chunks by cosine similarity.
+3. **Answer.** Those chunks are handed to the chat model with a strict instruction: **answer only
+   from this context, cite sources as [n], and say so when the documents don't cover it.**
+4. The answer streams back token-by-token, with a **Sources** panel linking each citation to its file.
+
+This means answers are *grounded*: if it isn't in your documents, Corpus tells you instead of guessing.
+
+---
+
+## Prerequisites
+
+1. [Install Ollama](https://ollama.com/download) and start it.
+2. Pull one embedding model and one chat model:
+
+   ```bash
+   ollama pull nomic-embed-text
+   ollama pull qwen2.5:7b         # or any chat model you prefer
+   ```
+
+3. Node.js **>= 20**.
+
+## Quick start
+
+### Linux / macOS (bash)
+
+```bash
+git clone https://github.com/OWNER/REPO.git corpus
+cd corpus
+npm ci
+npm run build
+npm start
+# open http://localhost:3000
+```
+
+### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/OWNER/REPO.git corpus
+cd corpus
+npm ci
+npm run build
+npm start
+# open http://localhost:3000
+```
+
+Then in the app: **Settings → pick a folder → Index library → ask a question.**
+
+### Using a remote Ollama
+
+In **Settings**, set the Ollama host to another machine, e.g. `http://192.168.1.50:11434`.
+On that machine, start Ollama listening on the network: `OLLAMA_HOST=0.0.0.0 ollama serve`.
+That machine is the only thing Corpus will ever talk to.
+
+## Configuration
+
+| Setting              | Default                     | Notes                                        |
+|----------------------|-----------------------------|----------------------------------------------|
+| Root folder          | *(none — set it first)*     | The only folder Corpus can read.             |
+| Ollama host          | `http://localhost:11434`    | Point anywhere on your LAN.                  |
+| Chat model           | `qwen2.5:7b`                | Any model you've pulled.                     |
+| Embedding model      | `nomic-embed-text`          | Changing it rebuilds the index.              |
+| Top-k                | `6`                         | Chunks retrieved per question.               |
+| Chunk size / overlap | `3200` / `600` chars        | ≈ 800 / 150 tokens.                          |
+
+To exclude files from indexing, drop a `.corpusignore` in your library root (one name or relative
+path per line, `#` for comments — see [`.corpusignore.example`](.corpusignore.example)).
 
 ## Security model
 
-- **Path confinement.** Every file path from the UI is resolved against the configured root with
-  a canonical real-path check (`lib/fs-safe.ts`). Traversal (`..`), absolute paths, UNC paths,
-  null bytes, and symlink escapes are rejected — proven by a table of attack-input tests.
-- **No egress.** The only runtime network destination is the configured Ollama host.
-- **Local by default.** The server binds to `127.0.0.1`. To expose it on your LAN, run with
-  `HOST=0.0.0.0` and (recommended) set `CORPUS_TOKEN=<secret>` — all `/api/*` routes then require
-  `Authorization: Bearer <secret>` (or a `corpus_token` cookie). This is a lock on the door, not
-  an auth system: Corpus stays single-user.
+- **Path confinement.** Every file request is resolved against the configured root with a canonical
+  real-path check and rejected if it escapes it (`..`, absolute paths, null bytes, symlinks,
+  Windows UNC paths). This is covered by a dedicated test suite of malicious inputs
+  (`tests/unit/fs-safe.test.ts`).
+- **No egress.** The only network destination at runtime is your Ollama host. No fonts, analytics,
+  telemetry, or update checks — the app ships zero external assets.
+- **Local by default.** The server binds to `127.0.0.1`. To expose it on your LAN, set `HOST=0.0.0.0`
+  and (recommended) `CORPUS_TOKEN=<secret>` — all `/api/*` routes then require
+  `Authorization: Bearer <secret>` (or a `corpus_token` cookie). A lock on the door, not an auth
+  system: Corpus stays single-user.
 - Downloads are served with safe content-disposition headers; file contents are never executed.
-
-## Ignoring files
-
-Drop a `.corpusignore` in your library root (see `.corpusignore.example`): one name or relative
-path per line, `#` for comments.
 
 ## Development
 
@@ -133,8 +174,8 @@ path per line, `#` for comments.
 npm run dev        # dev server
 npm run typecheck  # tsc --noEmit
 npm run lint       # eslint
-npm test           # Vitest unit tests
-npm run test:e2e   # Playwright E2E against a mocked Ollama (no GPU needed)
+npm test           # vitest
+npm run test:e2e   # playwright (runs against a mocked Ollama — no GPU needed)
 ```
 
 CI runs all of the above on Ubuntu **and** Windows. See [DECISIONS.md](DECISIONS.md) for the
@@ -147,10 +188,17 @@ The primary supported path is bare `npm` on one machine. A `Dockerfile` and `doc
 are provided for convenience; Ollama is assumed external (or uncomment the bundled service in the
 compose file).
 
-```bash
-docker compose up --build   # → http://localhost:3000
-```
+## Roadmap
+
+- [ ] `sqlite-vec` / LanceDB backend for larger corpora
+- [ ] More file formats (`.pptx`, `.epub`) and in-app DOCX preview
+- [ ] Re-ranking / MMR for more diverse retrieval
+- [ ] Conversation export
 
 ## License
 
 [MIT](LICENSE)
+
+---
+
+<sub>Built as a study in clean, typed, tested full-stack code. Contributions and issues welcome.</sub>
