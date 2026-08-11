@@ -39,7 +39,6 @@ export function sanitizeFolderName(raw: string): string {
 export function sanitizeFileName(raw: string): string {
   // win32.basename treats both / and \ as separators on every platform.
   const base = path.win32.basename(raw.replaceAll("\0", ""));
-  // eslint-disable-next-line no-control-regex
   const clean = base.replace(/[\u0000-\u001f\u007f]/g, "").trim();
   if (!clean || clean === "." || clean === "..") return "upload";
   return clean;
