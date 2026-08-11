@@ -8,9 +8,14 @@ For a personal corpus (up to ~tens of thousands of chunks) an exhaustive cosine 
 Float32 embeddings loaded from SQLite takes milliseconds and needs **zero native vector
 extensions**, which maximises the Windows + Linux "just works" guarantee. Retrieval sits behind a
 `VectorStore` interface (`lib/vector.ts`) so `sqlite-vec` or LanceDB can be swapped in later
-without touching callers. `better-sqlite3` v13 ships prebuilt binaries for Windows, Linux and
-macOS (verified locally on Node 26; CI verifies Node 22 on Ubuntu + Windows). Trade-off: brute
-force is O(n) per query; acceptable at this scale by design.
+without touching callers. Trade-off: brute force is O(n) per query; acceptable at this scale by design.
+
+**Version pin:** `better-sqlite3` is pinned to `^12.11.1` (i.e. < 13). The v13.x releases publish
+**no prebuilt binaries** (verified: zero release assets on v13.0.0–13.0.3), so installs fall back
+to node-gyp — which broke on the `windows-latest` CI runner (node-gyp 11 can't detect Visual
+Studio 18). v12.11.1 ships prebuilds for Node 20/22 on win32/linux/darwin (checked the release
+assets explicitly, per the spec's "verify prebuilds before committing to it" note). Revisit when
+v13 resumes publishing prebuilds.
 
 ## Chunking by characters, not tokens
 
