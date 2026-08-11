@@ -13,7 +13,7 @@ nothing you ask ever leaves your machine (or your LAN). No cloud, no API keys, n
 > reason the project exists. At runtime the app makes **zero outbound calls** except to the Ollama
 > host you configure.
 
-![30-second demo](docs/demo.gif) <!-- TODO: record demo GIF -->
+<!-- TODO: record a 30-second demo GIF and embed it here (docs/demo.gif) -->
 
 ---
 
@@ -24,6 +24,9 @@ nothing you ask ever leaves your machine (or your LAN). No cloud, no API keys, n
 - **Clickable citations** — every `[n]` in an answer links back to the exact source file it came from.
 - **Local or remote Ollama** — run the model on the same machine, or point Corpus at a beefier GPU
   box elsewhere on your network. A weak laptop can drive a strong server.
+- **VRAM-aware model picks** — Corpus detects your NVIDIA GPU (or takes a manual VRAM value) and
+  recommends chat + embedding models sized for it, with one-click apply and the exact
+  `ollama pull` command for anything missing.
 - **Cross-platform** — first-class support for **Windows and Linux**, verified in CI on both.
 
 ## Tech stack
@@ -98,12 +101,26 @@ This means answers are *grounded*: if it isn't in your documents, Corpus tells y
 ## Prerequisites
 
 1. [Install Ollama](https://ollama.com/download) and start it.
-2. Pull one embedding model and one chat model:
+2. Pull one embedding model and one chat model, **sized for your GPU**. Corpus recommends the
+   right pair in **Settings** (NVIDIA VRAM is detected automatically; otherwise enter it
+   manually). The default tiers:
+
+   | Available VRAM | Chat model    | Embedding model           |
+   |----------------|---------------|---------------------------|
+   | ≥ 24 GB        | `qwen3.6:27b` | `snowflake-arctic-embed2` |
+   | 16–24 GB       | `gpt-oss:20b` | `snowflake-arctic-embed2` |
+   | 6–16 GB        | `qwen2.5:7b`  | `nomic-embed-text`        |
+   | < 6 GB / CPU   | `llama3.2:3b` | `nomic-embed-text`        |
+
+   For example, on a 24 GB card:
 
    ```bash
-   ollama pull nomic-embed-text
-   ollama pull qwen2.5:7b         # or any chat model you prefer
+   ollama pull snowflake-arctic-embed2
+   ollama pull qwen3.6:27b
    ```
+
+   All tags verified on [ollama.com](https://ollama.com/library); the ≥ 24 GB tier is validated
+   on an RTX 3090 Ti (24 GB). Sizes leave headroom for context, embeddings and the OS.
 
 3. Node.js **>= 20**.
 
@@ -145,8 +162,9 @@ That machine is the only thing Corpus will ever talk to.
 |----------------------|-----------------------------|----------------------------------------------|
 | Root folder          | *(none — set it first)*     | The only folder Corpus can read.             |
 | Ollama host          | `http://localhost:11434`    | Point anywhere on your LAN.                  |
-| Chat model           | `qwen2.5:7b`                | Any model you've pulled.                     |
-| Embedding model      | `nomic-embed-text`          | Changing it rebuilds the index.              |
+| Chat model           | Recommended per your VRAM (see Settings) | Any model you've pulled.        |
+| Embedding model      | Recommended per your VRAM (see Settings) | Changing it rebuilds the index. |
+| VRAM (manual)        | auto-detected via `nvidia-smi` | Set by hand on AMD/Apple/CPU-only machines. |
 | Top-k                | `6`                         | Chunks retrieved per question.               |
 | Chunk size / overlap | `3200` / `600` chars        | ≈ 800 / 150 tokens.                          |
 

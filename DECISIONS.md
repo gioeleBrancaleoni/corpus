@@ -69,6 +69,26 @@ Playwright boots a stub Ollama (`e2e/mock-ollama.mjs`): embeddings are bag-of-wo
 tiny vocabulary (so cosine ranking is predictable), chat streams one canned NDJSON answer. CI
 needs no GPU and no model downloads.
 
+## VRAM-based model recommendation
+
+Detection shells out to `nvidia-smi --query-gpu=memory.total,name` (works on Windows and Linux
+with NVIDIA drivers; multi-GPU picks the largest card) and **never throws** — AMD/Apple/CPU-only
+machines get `{ detected: false }` and a manual VRAM field in Settings. The recommendation logic
+(`lib/model-recommend.ts`) is a pure function over (VRAM, installed models) so it's unit-tested
+without mocks. The tier table is a single exported constant:
+≥24 GB → `qwen3.6:27b` + `snowflake-arctic-embed2`; 16–24 → `gpt-oss:20b` + same; 6–16 →
+`qwen2.5:7b` + `nomic-embed-text`; <6/CPU → `llama3.2:3b` + `nomic-embed-text`. All tags
+verified against ollama.com tag listings on 2026-08-11; the ≥24 GB tier is validated on an
+RTX 3090 Ti. An installed model from the matched tier *or a lighter one* is preferred over
+suggesting a pull; heavier-than-VRAM installed models are never recommended.
+
+## Chat markdown rendering
+
+Assistant answers are markdown (models emit `**bold**`, lists, headers), so the chat bubble
+renders through `react-markdown` + GFM. Citation markers `[n]` are turned into link nodes by a
+small remark plugin and swapped for clickable chips at render time — this keeps citations
+clickable *inside* formatted text instead of splitting the markdown around them.
+
 ## Auth scope
 
 Optional `CORPUS_TOKEN` shared secret guarding all `/api/*` routes (Bearer header or
