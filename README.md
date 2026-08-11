@@ -4,8 +4,7 @@
 questions about them using a local LLM through [Ollama](https://ollama.com). Nothing you index and
 nothing you ask ever leaves your machine (or your LAN). No cloud, no API keys, no accounts.
 
-<!-- Badges: replace OWNER/REPO once pushed to GitHub -->
-[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+[![CI](https://github.com/gioeleBrancaleoni/corpus/actions/workflows/ci.yml/badge.svg)](https://github.com/gioeleBrancaleoni/corpus/actions/workflows/ci.yml)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)
 
@@ -113,7 +112,7 @@ This means answers are *grounded*: if it isn't in your documents, Corpus tells y
 ### Linux / macOS (bash)
 
 ```bash
-git clone https://github.com/OWNER/REPO.git corpus
+git clone https://github.com/gioeleBrancaleoni/corpus.git corpus
 cd corpus
 npm ci
 npm run build
@@ -124,7 +123,7 @@ npm start
 ### Windows (PowerShell)
 
 ```powershell
-git clone https://github.com/OWNER/REPO.git corpus
+git clone https://github.com/gioeleBrancaleoni/corpus.git corpus
 cd corpus
 npm ci
 npm run build
