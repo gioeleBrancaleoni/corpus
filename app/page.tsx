@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { type CenterTab, CenterTabs } from "@/components/CenterTabs";
 import { EmptyState } from "@/components/EmptyState";
 import { FileTree } from "@/components/FileTree";
+import { IndexControls } from "@/components/IndexControls";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { type ConnectionState, StatusDot } from "@/components/StatusDot";
 import { Viewer } from "@/components/Viewer";
@@ -106,6 +107,7 @@ export default function Home() {
               </p>
             )}
           </div>
+          <IndexControls disabled={!hasRoot} onFinished={() => void refreshTree()} />
         </aside>
 
         <section className="flex min-h-0 flex-col">

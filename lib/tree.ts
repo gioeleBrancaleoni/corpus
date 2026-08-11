@@ -8,6 +8,7 @@ export interface TreeNode {
   path: string;
   type: "dir" | "file";
   size?: number;
+  mtimeMs?: number;
   status?: "indexed" | "stale" | "unindexed" | "unsupported";
   children?: TreeNode[];
 }
@@ -54,11 +55,13 @@ function walk(absDir: string, relDir: string, ignore: string[]): TreeNode[] {
       });
     } else if (entry.isFile()) {
       const abs = path.join(absDir, entry.name);
+      const stat = fs.statSync(abs);
       nodes.push({
         name: entry.name,
         path: rel,
         type: "file",
-        size: fs.statSync(abs).size,
+        size: stat.size,
+        mtimeMs: stat.mtimeMs,
         status: isSupported(entry.name) ? "unindexed" : "unsupported",
       });
     }
