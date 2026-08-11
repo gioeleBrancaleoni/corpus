@@ -1,6 +1,10 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { Root, PhrasingContent } from "mdast";
+import { visit } from "unist-util-visit";
 import type { ChatMessage, Source } from "@/lib/types";
 
 export interface ChatTurn {
@@ -176,26 +180,59 @@ export function Chat({ disabled, onSources, onCiteClick }: Props) {
   );
 }
 
-/** Render [n] citations as clickable chips that highlight the source. */
-function AnswerText({ text, onCiteClick }: { text: string; onCiteClick(n: number): void }) {
-  const parts = text.split(/(\[\d+\])/g);
-  return (
-    <>
-      {parts.map((part, i) => {
+/**
+ * remark plugin: turn [n] citation markers inside text nodes into link nodes
+ * with a #cite-n href, so they survive markdown rendering and can be swapped
+ * for clickable chips by the `a` component below.
+ */
+function remarkCitations() {
+  return (tree: Root) => {
+    visit(tree, "text", (node, index, parent) => {
+      if (!parent || index === undefined) return;
+      const parts = node.value.split(/(\[\d+\])/g).filter((p) => p !== "");
+      if (parts.length === 1 && !/^\[\d+\]$/.test(parts[0] ?? "")) return;
+      const replacement: PhrasingContent[] = parts.map((part) => {
         const m = /^\[(\d+)\]$/.exec(part);
-        if (!m) return <Fragment key={i}>{part}</Fragment>;
-        const n = Number(m[1]);
-        return (
-          <button
-            key={i}
-            onClick={() => onCiteClick(n)}
-            className="mx-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded bg-primary/15 px-1 align-text-top font-mono text-[10px] font-semibold text-primary hover:bg-primary/25"
-            aria-label={`Show source ${n}`}
-          >
-            {n}
-          </button>
-        );
-      })}
-    </>
+        return m
+          ? { type: "link", url: `#cite-${m[1]}`, children: [{ type: "text", value: m[1]! }] }
+          : { type: "text", value: part };
+      });
+      parent.children.splice(index, 1, ...replacement);
+      return index + replacement.length;
+    });
+  };
+}
+
+/** Render the answer as markdown, with [n] citations as clickable chips. */
+function AnswerText({ text, onCiteClick }: { text: string; onCiteClick(n: number): void }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkCitations]}
+      components={{
+        a: ({ href, children }) => {
+          const m = /^#cite-(\d+)$/.exec(href ?? "");
+          if (m) {
+            const n = Number(m[1]);
+            return (
+              <button
+                onClick={() => onCiteClick(n)}
+                className="mx-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded bg-primary/15 px-1 align-text-top font-mono text-[10px] font-semibold text-primary not-prose hover:bg-primary/25"
+                aria-label={`Show source ${n}`}
+              >
+                {n}
+              </button>
+            );
+          }
+          // Genuine links from documents: keep them plain and explicit.
+          return (
+            <a href={href} target="_blank" rel="noreferrer noopener" className="text-accent underline">
+              {children}
+            </a>
+          );
+        },
+      }}
+    >
+      {text}
+    </ReactMarkdown>
   );
 }
