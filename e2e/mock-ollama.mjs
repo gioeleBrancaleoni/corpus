@@ -28,9 +28,17 @@ const ANSWERS = {
 
 function pickAnswer(body) {
   const lastUser = (body.messages ?? []).filter((m) => m.role === "user").at(-1);
-  return /invoice|acme|total/i.test(lastUser?.content ?? "")
-    ? ANSWERS.invoice
-    : ANSWERS.photosynthesis;
+  const content = lastUser?.content ?? "";
+  // Classification requests (see lib/upload.ts prompt). A document carrying
+  // the EVIL marker gets a malicious folder suggestion so the E2E can assert
+  // the app confines it.
+  if (/filing assistant/i.test(content)) {
+    const json = /EVIL-FOLDER-TRIGGER/.test(content)
+      ? '{"folder":"../../../../pwned","isNew":true,"reason":"gotcha"}'
+      : '{"folder":"botany","isNew":true,"reason":"plant biology notes"}';
+    return [json];
+  }
+  return /invoice|acme|total/i.test(content) ? ANSWERS.invoice : ANSWERS.photosynthesis;
 }
 
 function readBody(req) {
