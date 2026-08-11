@@ -2,7 +2,7 @@
 
 Log of technical decisions and deviations, per the build spec.
 
-## SQLite (`better-sqlite3`) + brute-force cosine, no vector server
+## SQLite (`node:sqlite`) + brute-force cosine, no vector server
 
 For a personal corpus (up to ~tens of thousands of chunks) an exhaustive cosine scan over
 Float32 embeddings loaded from SQLite takes milliseconds and needs **zero native vector
@@ -10,12 +10,16 @@ extensions**, which maximises the Windows + Linux "just works" guarantee. Retrie
 `VectorStore` interface (`lib/vector.ts`) so `sqlite-vec` or LanceDB can be swapped in later
 without touching callers. Trade-off: brute force is O(n) per query; acceptable at this scale by design.
 
-**Version pin:** `better-sqlite3` is pinned to `^12.11.1` (i.e. < 13). The v13.x releases publish
-**no prebuilt binaries** (verified: zero release assets on v13.0.0–13.0.3), so installs fall back
-to node-gyp — which broke on the `windows-latest` CI runner (node-gyp 11 can't detect Visual
-Studio 18). v12.11.1 ships prebuilds for Node 20/22 on win32/linux/darwin (checked the release
-assets explicitly, per the spec's "verify prebuilds before committing to it" note). Revisit when
-v13 resumes publishing prebuilds.
+**History — from `better-sqlite3` to Node's built-in SQLite:** v0.1 shipped on `better-sqlite3`
+(pinned `^12.11.1` after discovering v13.x publishes no prebuilt binaries, whose source build
+broke on the `windows-latest` runner: node-gyp 11 can't detect Visual Studio 18). That pin was a
+symptom of the real problem — a native dependency is build fragility on every new Node/compiler
+combination. Since Node 24 ships a **stable built-in `node:sqlite`** (no flag needed), the store
+migrated to `DatabaseSync`: zero native modules, no prebuilds to verify, works on any Node ≥ 24.
+Differences handled in the migration: BLOBs come back as `Uint8Array` (4-byte-alignment copy kept
+for the Float32 round-trip), pragmas via `exec`, and `replaceChunks` uses explicit
+`BEGIN`/`COMMIT`/`ROLLBACK` since there is no `transaction()` helper. `engines.node` is `>=24`
+and CI runs Node 24 on both OSes.
 
 ## Chunking by characters, not tokens
 

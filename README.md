@@ -6,7 +6,7 @@ nothing you ask ever leaves your machine (or your LAN). No cloud, no API keys, n
 
 [![CI](https://github.com/gioeleBrancaleoni/corpus/actions/workflows/ci.yml/badge.svg)](https://github.com/gioeleBrancaleoni/corpus/actions/workflows/ci.yml)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
-![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)
+![Node](https://img.shields.io/badge/node-%3E%3D24-brightgreen)
 
 > **Why local?** Corpus is built for documents you *can't* send to a cloud provider — legal, medical,
 > HR, financial, anything GDPR-relevant. The privacy guarantee isn't a feature bolted on; it's the
@@ -42,7 +42,7 @@ configured models, and `ffmpeg` on PATH — see `scripts/record-demo.ts`).</sub>
 |------------------|---------------------------------------------------------------|
 | App              | Next.js (App Router) + TypeScript (`strict`)                  |
 | UI               | React + Tailwind CSS                                          |
-| Storage          | SQLite (`better-sqlite3`) — single file, no server            |
+| Storage          | SQLite via `node:sqlite` (built into Node) — single file, zero native deps |
 | Vector search    | In-process cosine similarity (swappable `VectorStore` interface) |
 | Inference        | Ollama HTTP API — embeddings + chat, streamed                 |
 | Tests            | Vitest (unit) + Playwright (E2E)                              |
@@ -129,7 +129,7 @@ This means answers are *grounded*: if it isn't in your documents, Corpus tells y
    All tags verified on [ollama.com](https://ollama.com/library); the ≥ 24 GB tier is validated
    on an RTX 3090 Ti (24 GB). Sizes leave headroom for context, embeddings and the OS.
 
-3. Node.js **>= 20**.
+3. Node.js **>= 24** (Corpus uses Node's built-in SQLite — no native modules to compile).
 
 ## Quick start
 

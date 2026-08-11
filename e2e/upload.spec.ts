@@ -113,15 +113,11 @@ test("unsupported types and oversized files are rejected", async ({ request }) =
 test("a stale index defers indexing instead of mixing vector formats", async ({ request }) => {
   // Poison the live DB's format marker so the index (non-empty after the
   // earlier uploads) is incompatible with the app's current vector format.
-  // createRequire anchored at the real repo root: Playwright's transpile
-  // cache breaks native-module path resolution for plain imports.
-  const { createRequire } = await import("node:module");
-  const requireFromRepo = createRequire(path.join(__dirname, "..", "package.json"));
-  const Database = requireFromRepo("better-sqlite3") as typeof import("better-sqlite3");
+  const { DatabaseSync } = await import("node:sqlite");
   const dbPath = path.join(__dirname, ".data", "corpus.db");
 
-  const withDb = <T>(fn: (db: import("better-sqlite3").Database) => T): T => {
-    const db = new Database(dbPath);
+  const withDb = <T>(fn: (db: InstanceType<typeof DatabaseSync>) => T): T => {
+    const db = new DatabaseSync(dbPath);
     try {
       return fn(db);
     } finally {

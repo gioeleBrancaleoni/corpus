@@ -1,5 +1,5 @@
 import path from "node:path";
-import Database from "better-sqlite3";
+import { DatabaseSync } from "node:sqlite";
 import { dataDir } from "./config";
 
 export interface FileRow {
@@ -61,21 +61,27 @@ CREATE TABLE IF NOT EXISTS meta (
 `;
 
 interface RawChunkRow extends Omit<ChunkRow, "embedding"> {
-  embedding: Buffer;
+  // node:sqlite returns BLOBs as Uint8Array
+  embedding: Uint8Array;
 }
 
 function decodeChunk(row: RawChunkRow): ChunkRow {
-  const buf = row.embedding;
-  // Copy into an aligned Float32Array; the Buffer's byteOffset may not be 4-aligned.
-  const embedding = new Float32Array(buf.byteLength / 4);
-  new Uint8Array(embedding.buffer).set(buf);
+  const bytes = row.embedding;
+  // Copy into an aligned Float32Array; the returned bytes may not be 4-aligned.
+  const embedding = new Float32Array(bytes.byteLength / 4);
+  new Uint8Array(embedding.buffer).set(bytes);
   return { ...row, embedding };
 }
 
+function encodeEmbedding(v: Float32Array): Uint8Array {
+  return new Uint8Array(v.buffer, v.byteOffset, v.byteLength);
+}
+
 export function openStore(dbPath?: string): Store {
-  const db = new Database(dbPath ?? path.join(dataDir(), "corpus.db"));
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
+  // Node's built-in SQLite (stable since Node 24): zero native dependencies.
+  const db = new DatabaseSync(dbPath ?? path.join(dataDir(), "corpus.db"));
+  db.exec("PRAGMA journal_mode = WAL");
+  db.exec("PRAGMA foreign_keys = ON");
   db.exec(SCHEMA);
 
   const upsert = db.prepare(`
@@ -95,56 +101,65 @@ export function openStore(dbPath?: string): Store {
   `);
   const allChunksStmt = db.prepare("SELECT * FROM chunks ORDER BY fileId, ordinal");
   const chunksByFileStmt = db.prepare("SELECT * FROM chunks WHERE fileId = ? ORDER BY ordinal");
-
-  const replaceChunksTx = db.transaction(
-    (fileId: number, chunks: Omit<ChunkRow, "id" | "fileId">[]) => {
-      delChunks.run(fileId);
-      for (const c of chunks) {
-        insChunk.run({
-          fileId,
-          ordinal: c.ordinal,
-          text: c.text,
-          embedding: Buffer.from(c.embedding.buffer, c.embedding.byteOffset, c.embedding.byteLength),
-          startOffset: c.startOffset,
-          endOffset: c.endOffset,
-        });
-      }
-    },
+  const getMetaStmt = db.prepare("SELECT value FROM meta WHERE key = ?");
+  const setMetaStmt = db.prepare(
+    "INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
   );
 
   return {
     upsertFile(f) {
-      upsert.run(f);
-      return (byPath.get(f.path) as FileRow).id;
+      upsert.run({
+        path: f.path,
+        sha256: f.sha256,
+        mtimeMs: f.mtimeMs,
+        size: f.size,
+        indexedAt: f.indexedAt,
+      });
+      return (byPath.get(f.path) as unknown as FileRow).id;
     },
     getFileByPath(p) {
-      return byPath.get(p) as FileRow | undefined;
+      return byPath.get(p) as unknown as FileRow | undefined;
     },
     listFiles() {
-      return all.all() as FileRow[];
+      return all.all() as unknown as FileRow[];
     },
     deleteFile(p) {
       delFile.run(p);
     },
     replaceChunks(fileId, chunks) {
-      replaceChunksTx(fileId, chunks);
+      // node:sqlite has no transaction helper: explicit BEGIN/COMMIT with
+      // ROLLBACK on throw preserves the delete+insert atomicity.
+      db.exec("BEGIN");
+      try {
+        delChunks.run(fileId);
+        for (const c of chunks) {
+          insChunk.run({
+            fileId,
+            ordinal: c.ordinal,
+            text: c.text,
+            embedding: encodeEmbedding(c.embedding),
+            startOffset: c.startOffset,
+            endOffset: c.endOffset,
+          });
+        }
+        db.exec("COMMIT");
+      } catch (err) {
+        db.exec("ROLLBACK");
+        throw err;
+      }
     },
     allChunks() {
-      return (allChunksStmt.all() as RawChunkRow[]).map(decodeChunk);
+      return (allChunksStmt.all() as unknown as RawChunkRow[]).map(decodeChunk);
     },
     chunksByFile(fileId) {
-      return (chunksByFileStmt.all(fileId) as RawChunkRow[]).map(decodeChunk);
+      return (chunksByFileStmt.all(fileId) as unknown as RawChunkRow[]).map(decodeChunk);
     },
     getMeta(key) {
-      const row = db.prepare("SELECT value FROM meta WHERE key = ?").get(key) as
-        | { value: string }
-        | undefined;
+      const row = getMetaStmt.get(key) as unknown as { value: string } | undefined;
       return row?.value;
     },
     setMeta(key, value) {
-      db.prepare(
-        "INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-      ).run(key, value);
+      setMetaStmt.run(key, value);
     },
     wipe() {
       db.exec("DELETE FROM chunks; DELETE FROM files;");
