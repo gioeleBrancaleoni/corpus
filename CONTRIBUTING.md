@@ -27,3 +27,5 @@ npm run typecheck && npm run lint && npm test && npm run test:e2e
 - New parsers go behind `extractText`; new retrieval strategies behind `VectorStore`.
 - Commit style: conventional-ish (`feat:`, `fix:`, `test:`, `docs:`, `chore:`). Small, logical
   commits.
+
+New to the repo? Start with [docs/HANDOFF.md](docs/HANDOFF.md) — current state, invariants, and the gotchas that already cost us red CI runs.
