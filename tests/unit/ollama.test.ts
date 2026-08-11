@@ -98,6 +98,13 @@ describe("chatStream", () => {
     expect(parts.join("")).toBe("Hello world");
   });
 
+  it("disables model thinking in the request body", async () => {
+    const spy = stubFetch(async () => new Response(streamOf(`{"done":true}\n`)));
+    for await (const _ of chatStream(HOST, "qwen3.6:27b", MESSAGES)) void _;
+    const body = JSON.parse((spy.mock.calls[0]![1] as RequestInit).body as string);
+    expect(body.think).toBe(false);
+  });
+
   it("maps mid-stream error objects to OllamaError", async () => {
     stubFetch(async () => new Response(streamOf(`{"error":"boom"}\n`)));
     const iterate = async () => {

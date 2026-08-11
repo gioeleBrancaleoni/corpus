@@ -87,10 +87,13 @@ export async function* chatStream(
   messages: ChatMessage[],
   opts?: { signal?: AbortSignal },
 ): AsyncIterable<string> {
+  // think:false — grounded RAG answers don't benefit from long hidden
+  // reasoning, which reads as a frozen UI. Non-thinking models accept the
+  // field unchanged; models that can't disable it (gpt-oss) ignore it.
   const res = await ollamaFetch(host, "/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages, stream: true }),
+    body: JSON.stringify({ model, messages, stream: true, think: false }),
     signal: opts?.signal,
   });
   if (!res.body) throw new OllamaError("bad-response", host, "empty response body");
