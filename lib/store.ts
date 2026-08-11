@@ -29,6 +29,8 @@ export interface Store {
   replaceChunks(fileId: number, chunks: Omit<ChunkRow, "id" | "fileId">[]): void;
   allChunks(): ChunkRow[];
   chunksByFile(fileId: number): ChunkRow[];
+  getMeta(key: string): string | undefined;
+  setMeta(key: string, value: string): void;
   wipe(): void;
   close(): void;
 }
@@ -52,6 +54,10 @@ CREATE TABLE IF NOT EXISTS chunks (
   endOffset INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_chunks_file ON chunks(fileId);
+CREATE TABLE IF NOT EXISTS meta (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 `;
 
 interface RawChunkRow extends Omit<ChunkRow, "embedding"> {
@@ -128,6 +134,17 @@ export function openStore(dbPath?: string): Store {
     },
     chunksByFile(fileId) {
       return (chunksByFileStmt.all(fileId) as RawChunkRow[]).map(decodeChunk);
+    },
+    getMeta(key) {
+      const row = db.prepare("SELECT value FROM meta WHERE key = ?").get(key) as
+        | { value: string }
+        | undefined;
+      return row?.value;
+    },
+    setMeta(key, value) {
+      db.prepare(
+        "INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+      ).run(key, value);
     },
     wipe() {
       db.exec("DELETE FROM chunks; DELETE FROM files;");
