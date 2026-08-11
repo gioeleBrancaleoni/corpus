@@ -8,6 +8,16 @@ import { embed as ollamaEmbed } from "./ollama";
 import { type Store, openStore } from "./store";
 import { listSupportedFiles } from "./tree";
 import type { Settings } from "./types";
+import { normalizeVec } from "./vector";
+
+/**
+ * Version of the on-disk vector representation. "unit-f32-v1" = embeddings
+ * stored unit-normalized so retrieval is a plain dot product. Bump this when
+ * the stored representation changes; a mismatch wipes and rebuilds the index
+ * (same mechanism as an embedModel change) so normalized and non-normalized
+ * vectors are never mixed.
+ */
+export const INDEX_FORMAT = "unit-f32-v1";
 
 export interface FileError {
   path: string;
@@ -73,9 +83,15 @@ export async function runIngest(deps?: IngestDeps): Promise<IngestProgress> {
       return progress;
     }
 
-    // Changing the embedding model changes vector dimensions: rebuild from scratch.
+    // Changing the embedding model changes vector dimensions, and an index
+    // written in an older vector format can't be mixed with the current one:
+    // both cases rebuild from scratch.
     const indexedModel = store.getMeta("embedModel");
-    if (indexedModel !== undefined && indexedModel !== settings.embedModel) {
+    const indexedFormat = store.getMeta("indexFormat");
+    if (
+      (indexedModel !== undefined && indexedModel !== settings.embedModel) ||
+      indexedFormat !== INDEX_FORMAT
+    ) {
       store.wipe();
       saveSettings({ embedDim: null });
     }
@@ -107,6 +123,7 @@ export async function runIngest(deps?: IngestDeps): Promise<IngestProgress> {
     }
 
     store.setMeta("embedModel", settings.embedModel);
+    store.setMeta("indexFormat", INDEX_FORMAT);
     progress = { ...progress, state: cancelled ? "cancelled" : "done", currentFile: null };
     return progress;
   } catch (err) {
@@ -144,11 +161,14 @@ async function ingestOne(
 
   const text = await extractText(abs);
   const chunks = chunkText(text, { size: settings.chunkSize, overlap: settings.chunkOverlap });
-  const embeddings = await embedFn(
-    settings.ollamaHost,
-    settings.embedModel,
-    chunks.map((c) => c.text),
-  );
+  // Stored unit-normalized (INDEX_FORMAT) so search is a plain dot product.
+  const embeddings = (
+    await embedFn(
+      settings.ollamaHost,
+      settings.embedModel,
+      chunks.map((c) => c.text),
+    )
+  ).map(normalizeVec);
 
   if (settings.embedDim === null && embeddings.length > 0) {
     saveSettings({ embedDim: embeddings[0]!.length });

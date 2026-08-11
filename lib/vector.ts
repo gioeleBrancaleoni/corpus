@@ -18,6 +18,25 @@ export class DimensionMismatchError extends Error {
   }
 }
 
+/** Scale a vector to unit length. The zero vector is returned unchanged. */
+export function normalizeVec(v: Float32Array): Float32Array {
+  let sumSquares = 0;
+  for (let i = 0; i < v.length; i++) sumSquares += v[i]! * v[i]!;
+  const norm = Math.sqrt(sumSquares);
+  if (norm === 0) return v;
+  const out = new Float32Array(v.length);
+  for (let i = 0; i < v.length; i++) out[i] = v[i]! / norm;
+  return out;
+}
+
+/** Plain dot product; equals cosine similarity when both vectors are unit length. */
+export function dot(a: Float32Array, b: Float32Array): number {
+  if (a.length !== b.length) throw new DimensionMismatchError(a.length, b.length);
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) sum += a[i]! * b[i]!;
+  return sum;
+}
+
 export function cosineSim(a: Float32Array, b: Float32Array): number {
   if (a.length !== b.length) throw new DimensionMismatchError(a.length, b.length);
   let dot = 0;
@@ -34,6 +53,12 @@ export function cosineSim(a: Float32Array, b: Float32Array): number {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
+/**
+ * Contract: entries' embeddings MUST already be unit-normalized (the ingest
+ * write path guarantees this — see INDEX_FORMAT in lib/ingest.ts). The query
+ * is normalized once here, so the hot loop is a plain dot product with no
+ * per-entry norm work.
+ */
 export class BruteForceStore implements VectorStore {
   private entries: { chunkId: number; embedding: Float32Array }[];
 
@@ -42,9 +67,10 @@ export class BruteForceStore implements VectorStore {
   }
 
   search(query: Float32Array, k: number): SearchHit[] {
+    const unitQuery = normalizeVec(query);
     const scored = this.entries.map((e) => ({
       chunkId: e.chunkId,
-      score: cosineSim(query, e.embedding),
+      score: dot(unitQuery, e.embedding),
     }));
     scored.sort((a, b) => b.score - a.score);
     return scored.slice(0, k);

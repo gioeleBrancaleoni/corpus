@@ -71,6 +71,22 @@ describe("runIngest", () => {
     expect(store.listFiles().map((f) => f.path).sort()).toEqual(["docs/three.csv", "one.md"]);
   });
 
+  it("stores embeddings unit-normalized", async () => {
+    await runIngest({ embedFn, store, settings });
+    for (const chunk of store.allChunks()) {
+      expect(Math.hypot(...chunk.embedding)).toBeCloseTo(1, 5);
+    }
+  });
+
+  it("rebuilds when the stored index predates the current vector format", async () => {
+    await runIngest({ embedFn, store, settings });
+    store.setMeta("indexFormat", "legacy-raw-f32");
+    embedFn.mockClear();
+    await runIngest({ embedFn, store, settings });
+    expect(embedFn).toHaveBeenCalledTimes(3); // full re-embed, not incremental skip
+    expect(store.getMeta("indexFormat")).toBe("unit-f32-v1");
+  });
+
   it("wipes the index when the embedding model changes", async () => {
     await runIngest({ embedFn, store, settings });
     embedFn.mockClear();

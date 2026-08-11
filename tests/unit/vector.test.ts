@@ -1,7 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { BruteForceStore, DimensionMismatchError, cosineSim } from "@/lib/vector";
+import { BruteForceStore, DimensionMismatchError, cosineSim, dot, normalizeVec } from "@/lib/vector";
 
 const v = (...xs: number[]) => Float32Array.from(xs);
+
+describe("normalizeVec / dot", () => {
+  it("scales vectors to unit length", () => {
+    const u = normalizeVec(v(3, 4));
+    expect(Math.hypot(...u)).toBeCloseTo(1, 6);
+    expect(u[0]).toBeCloseTo(0.6, 6);
+  });
+
+  it("leaves the zero vector unchanged (no NaN)", () => {
+    expect(Array.from(normalizeVec(v(0, 0)))).toEqual([0, 0]);
+  });
+
+  it("dot product of unit vectors equals cosine of the originals", () => {
+    const a = v(3, 1, -2);
+    const b = v(0.5, 4, 1);
+    expect(dot(normalizeVec(a), normalizeVec(b))).toBeCloseTo(cosineSim(a, b), 6);
+  });
+
+  it("dot throws on dimension mismatch", () => {
+    expect(() => dot(v(1, 2), v(1, 2, 3))).toThrow(DimensionMismatchError);
+  });
+});
 
 describe("cosineSim", () => {
   it("is 1 for identical vectors", () => {
@@ -30,11 +52,12 @@ describe("cosineSim", () => {
 });
 
 describe("BruteForceStore", () => {
+  // Contract: entries are unit-normalized (the ingest write path guarantees it).
   const store = new BruteForceStore([
-    { chunkId: 1, embedding: v(1, 0) }, // cos with (1, 0.1) ≈ 0.995
-    { chunkId: 2, embedding: v(0, 1) }, // ≈ 0.0995
-    { chunkId: 3, embedding: v(1, 1) }, // ≈ 0.778
-    { chunkId: 4, embedding: v(-1, 0) }, // ≈ -0.995
+    { chunkId: 1, embedding: normalizeVec(v(1, 0)) }, // cos with (1, 0.1) ≈ 0.995
+    { chunkId: 2, embedding: normalizeVec(v(0, 1)) }, // ≈ 0.0995
+    { chunkId: 3, embedding: normalizeVec(v(1, 1)) }, // ≈ 0.778
+    { chunkId: 4, embedding: normalizeVec(v(-1, 0)) }, // ≈ -0.995
   ]);
 
   it("returns top-k by descending cosine score", () => {
