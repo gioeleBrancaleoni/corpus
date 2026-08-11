@@ -13,7 +13,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "demo:gif": "tsx scripts/record-demo.ts"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",
@@ -41,6 +42,7 @@
     "eslint-config-next": "16.3.0",
     "prettier": "^3.9.6",
     "tailwindcss": "^4",
+    "tsx": "^4.23.12",
     "typescript": "^5",
     "vitest": "^4.1.10"
   }
