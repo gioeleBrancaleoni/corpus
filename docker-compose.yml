@@ -1,0 +1,23 @@
+services:
+  corpus:
+    build: .
+    ports:
+      - "127.0.0.1:3000:3000" # localhost only; change to "3000:3000" for LAN (set CORPUS_TOKEN!)
+    volumes:
+      - ./data:/app/data
+      - /path/to/your/documents:/library:ro # <-- point this at your documents folder
+    # In the app settings, set the library folder to /library and the Ollama
+    # host to the machine running Ollama, e.g. http://host.docker.internal:11434
+    # environment:
+    #   CORPUS_TOKEN: change-me
+
+  # Uncomment to run Ollama alongside (needs a GPU for decent speed):
+  # ollama:
+  #   image: ollama/ollama
+  #   ports:
+  #     - "127.0.0.1:11434:11434"
+  #   volumes:
+  #     - ollama:/root/.ollama
+
+# volumes:
+#   ollama:
