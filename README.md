@@ -53,7 +53,7 @@ configured models, and `ffmpeg` on PATH — see `scripts/record-demo.ts`).</sub>
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────────────┐
 │ Next.js app (one process, `next start`)                      │
 │                                                              │
 │  UI (React/Tailwind)                                         │
