@@ -18,11 +18,11 @@ export interface TierEntry {
  * Edit this table to tune the recommendations.
  */
 export const MODEL_TIERS: TierEntry[] = [
-  { minVramGiB: 24, chat: "qwen3.6:27b", embed: "snowflake-arctic-embed2" },
-  { minVramGiB: 16, chat: "gpt-oss:20b", embed: "snowflake-arctic-embed2" },
-  { minVramGiB: 10, chat: "qwen2.5:7b", embed: "nomic-embed-text" },
-  { minVramGiB: 6, chat: "qwen2.5:7b", embed: "nomic-embed-text" },
-  { minVramGiB: 0, chat: "llama3.2:3b", embed: "nomic-embed-text" },
+  { minVramGiB: 24, chat: "qwen3.6:27b", embed: "snowflake-arctic-embed2:latest" },
+  { minVramGiB: 16, chat: "gpt-oss:20b", embed: "snowflake-arctic-embed2:latest" },
+  { minVramGiB: 10, chat: "qwen2.5:7b", embed: "nomic-embed-text:latest" },
+  { minVramGiB: 6, chat: "qwen2.5:7b", embed: "nomic-embed-text:latest" },
+  { minVramGiB: 0, chat: "llama3.2:3b", embed: "nomic-embed-text:latest" },
 ];
 
 export interface ModelSuggestion {

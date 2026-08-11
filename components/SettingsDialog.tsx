@@ -366,7 +366,9 @@ function ModelSelect({
   value: string;
   onChange(v: string): void;
 }) {
-  const known = models.some((m) => m.name === value);
+  // "nomic-embed-text" and "nomic-embed-text:latest" name the same model.
+  const norm = (tag: string) => (tag.endsWith(":latest") ? tag.slice(0, -":latest".length) : tag);
+  const known = models.some((m) => norm(m.name) === norm(value));
   return (
     <select id={id} className={className} value={value} onChange={(e) => onChange(e.target.value)}>
       {!known && value && <option value={value}>{value} (not pulled)</option>}
