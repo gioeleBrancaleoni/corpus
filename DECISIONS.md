@@ -89,6 +89,24 @@ renders through `react-markdown` + GFM. Citation markers `[n]` are turned into l
 small remark plugin and swapped for clickable chips at render time — this keeps citations
 clickable *inside* formatted text instead of splitting the markdown around them.
 
+## Chat requests send `think: false`
+
+Reasoning models (qwen3.6, deepseek-style) spend tens of seconds on hidden thinking before the
+first visible token — for grounded RAG answers this adds no quality and reads as a frozen UI.
+Corpus therefore sends `think: false` on `/api/chat`. Verified against Ollama 0.32.1:
+non-thinking models accept the field with no error; qwen3.6 answers immediately; gpt-oss ignores
+the flag (its reasoning can only be shortened, not disabled) and still works.
+
+## Demo GIF recorder is not a CI job
+
+`npm run demo:gif` (`scripts/record-demo.ts`) records the README demo with Playwright against a
+*running* app and a *real* Ollama, then converts to an optimized GIF via ffmpeg's two-pass
+palette. It is deliberately **excluded from CI**: it needs a GPU and real pulled models, its
+output is nondeterministic by design (an authentic streamed answer, not the E2E mock's canned
+one), and it would make CI slow and flaky for zero verification value. The E2E suite already
+covers the same flow deterministically against the mock. The demo indexes only the fictitious
+sample invoices in `e2e/fixtures/invoices/` — never real documents.
+
 ## Auth scope
 
 Optional `CORPUS_TOKEN` shared secret guarding all `/api/*` routes (Bearer header or

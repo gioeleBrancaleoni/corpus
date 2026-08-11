@@ -13,7 +13,10 @@ nothing you ask ever leaves your machine (or your LAN). No cloud, no API keys, n
 > reason the project exists. At runtime the app makes **zero outbound calls** except to the Ollama
 > host you configure.
 
-<!-- TODO: record a 30-second demo GIF and embed it here (docs/demo.gif) -->
+![Corpus: indexing a folder and answering a question about an invoice, fully locally](docs/demo.gif)
+
+<sub>Regenerate with `npm run demo:gif` (needs the app running, a reachable Ollama with the
+configured models, and `ffmpeg` on PATH — see `scripts/record-demo.ts`).</sub>
 
 ---
 
