@@ -107,6 +107,32 @@ one), and it would make CI slow and flaky for zero verification value. The E2E s
 covers the same flow deterministically against the mock. The demo indexes only the fictitious
 sample invoices in `e2e/fixtures/invoices/` — never real documents.
 
+## Unit-normalized vectors + versioned index format
+
+Embeddings are normalized to unit length once at index time, and the query once per search, so
+the retrieval hot loop is a plain dot product (no per-entry norm recomputation). Because this
+changes the stored representation, the `meta` table carries an `indexFormat` marker
+(`unit-f32-v1`); on mismatch the index is wiped and transparently rebuilt on the next ingest —
+the same mechanism as an embedding-model change — so normalized and raw vectors are never mixed.
+`cosineSim` remains exported for tests and general use.
+
+## Smart upload: the model's folder suggestion is untrusted
+
+`POST /api/upload` classifies the uploaded document with the local chat model, but the returned
+folder name is never used as a path directly: it is collapsed to a single kebab-case segment
+(`sanitizeFolderName` — `[a-z0-9-]`, ≤40 chars, Windows reserved names rejected, fallback
+`inbox/`), and the final destination still goes through `resolveSafe`. Filenames are cleaned to a
+basename, collisions get `-2`/`-3` suffixes (`COPYFILE_EXCL`, never overwrite), unsupported types
+415, oversize 413 (`maxUploadMB`, default 25). Classification talks JSON-in-prose (no Ollama
+`format` param — gpt-oss returns empty with it) and any failure files into `inbox/` without
+failing the upload. Only that one file is indexed (`ingestOne`), so uploads are immediately
+queryable without a full re-scan.
+
+## Auth timing
+
+Token checks hash both sides with SHA-256 and compare via `crypto.timingSafeEqual` — fixed
+32-byte inputs, so no early-exit timing signal and no length leak.
+
 ## Auth scope
 
 Optional `CORPUS_TOKEN` shared secret guarding all `/api/*` routes (Bearer header or

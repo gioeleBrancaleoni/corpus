@@ -30,6 +30,10 @@ configured models, and `ffmpeg` on PATH — see `scripts/record-demo.ts`).</sub>
 - **VRAM-aware model picks** — Corpus detects your NVIDIA GPU (or takes a manual VRAM value) and
   recommends chat + embedding models sized for it, with one-click apply and the exact
   `ollama pull` command for anything missing.
+- **Smart upload** — drop a document in the Library pane: Corpus extracts its text, asks the
+  local model which folder it belongs in, files it into that subfolder of your library, and
+  indexes it immediately. Classification failures fall back to `inbox/`; a manual `folder`
+  override is supported.
 - **Cross-platform** — first-class support for **Windows and Linux**, verified in CI on both.
 
 ## Tech stack
@@ -168,6 +172,7 @@ That machine is the only thing Corpus will ever talk to.
 | Chat model           | Recommended per your VRAM (see Settings) | Any model you've pulled.        |
 | Embedding model      | Recommended per your VRAM (see Settings) | Changing it rebuilds the index. |
 | VRAM (manual)        | auto-detected via `nvidia-smi` | Set by hand on AMD/Apple/CPU-only machines. |
+| Max upload size      | `25` MB                     | Uploads beyond this are rejected (413).      |
 | Top-k                | `6`                         | Chunks retrieved per question.               |
 | Chunk size / overlap | `3200` / `600` chars        | ≈ 800 / 150 tokens.                          |
 
@@ -187,6 +192,14 @@ path per line, `#` for comments — see [`.corpusignore.example`](.corpusignore.
   `Authorization: Bearer <secret>` (or a `corpus_token` cookie). A lock on the door, not an auth
   system: Corpus stays single-user.
 - Downloads are served with safe content-disposition headers; file contents are never executed.
+- **Uploads are confined too.** The smart-upload folder suggestion comes from the model, so it is
+  treated as **untrusted input**: it is collapsed to a single lowercase kebab-case segment
+  (`[a-z0-9-]`, ≤40 chars; traversal, absolute paths, reserved names and anything unsalvageable
+  fall back to `inbox/`), and the final destination is still confined to the library root through
+  the same real-path check as every other file access. Uploaded filenames are stripped to a clean
+  basename, existing files are never overwritten (`name-2.ext`), types outside the supported list
+  are rejected, and a size cap applies.
+- API tokens are compared in constant time (SHA-256 + `timingSafeEqual`).
 
 ## Development
 
