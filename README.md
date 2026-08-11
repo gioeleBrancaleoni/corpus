@@ -110,15 +110,15 @@ This means answers are *grounded*: if it isn't in your documents, Corpus tells y
 
    | Available VRAM | Chat model    | Embedding model           |
    |----------------|---------------|---------------------------|
-   | ≥ 24 GB        | `qwen3.6:27b` | `snowflake-arctic-embed2` |
-   | 16–24 GB       | `gpt-oss:20b` | `snowflake-arctic-embed2` |
-   | 6–16 GB        | `qwen2.5:7b`  | `nomic-embed-text`        |
-   | < 6 GB / CPU   | `llama3.2:3b` | `nomic-embed-text`        |
+   | ≥ 24 GB        | `qwen3.6:27b` | `snowflake-arctic-embed2:latest` |
+   | 16–24 GB       | `gpt-oss:20b` | `snowflake-arctic-embed2:latest` |
+   | 6–16 GB        | `qwen2.5:7b`  | `nomic-embed-text:latest`        |
+   | < 6 GB / CPU   | `llama3.2:3b` | `nomic-embed-text:latest`        |
 
    For example, on a 24 GB card:
 
    ```bash
-   ollama pull snowflake-arctic-embed2
+   ollama pull snowflake-arctic-embed2:latest
    ollama pull qwen3.6:27b
    ```
 

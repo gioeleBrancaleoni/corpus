@@ -76,8 +76,8 @@ with NVIDIA drivers; multi-GPU picks the largest card) and **never throws** — 
 machines get `{ detected: false }` and a manual VRAM field in Settings. The recommendation logic
 (`lib/model-recommend.ts`) is a pure function over (VRAM, installed models) so it's unit-tested
 without mocks. The tier table is a single exported constant:
-≥24 GB → `qwen3.6:27b` + `snowflake-arctic-embed2`; 16–24 → `gpt-oss:20b` + same; 6–16 →
-`qwen2.5:7b` + `nomic-embed-text`; <6/CPU → `llama3.2:3b` + `nomic-embed-text`. All tags
+≥24 GB → `qwen3.6:27b` + `snowflake-arctic-embed2:latest`; 16–24 → `gpt-oss:20b` + same; 6–16 →
+`qwen2.5:7b` + `nomic-embed-text:latest`; <6/CPU → `llama3.2:3b` + `nomic-embed-text:latest`. All tags
 verified against ollama.com tag listings on 2026-08-11; the ≥24 GB tier is validated on an
 RTX 3090 Ti. An installed model from the matched tier *or a lighter one* is preferred over
 suggesting a pull; heavier-than-VRAM installed models are never recommended.
