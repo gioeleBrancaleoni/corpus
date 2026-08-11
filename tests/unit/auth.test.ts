@@ -31,6 +31,14 @@ describe("authorize", () => {
     expect(authorize(req)).toBe(false);
   });
 
+  it("rejects tokens of a different length without throwing", () => {
+    process.env.CORPUS_TOKEN = "secret";
+    const req = new Request("http://x/api/files", {
+      headers: { Authorization: "Bearer a-much-longer-guess-than-the-real-token" },
+    });
+    expect(authorize(req)).toBe(false);
+  });
+
   it("accepts a matching corpus_token cookie", () => {
     process.env.CORPUS_TOKEN = "secret";
     const req = new Request("http://x/api/files", {
