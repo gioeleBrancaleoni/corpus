@@ -9,6 +9,7 @@ const VOCAB = [
   "photosynthesis", "light", "energy", "chlorophyll", "plants", "sunlight",
   "trains", "steam", "coal", "diesel", "locomotives",
   "pasta", "tomato", "basil", "water",
+  "invoice", "total", "acme", "widgets", "vat", "eur", "payment",
 ];
 
 function embedText(text) {
@@ -20,12 +21,17 @@ function embedText(text) {
   return vec;
 }
 
-const CANNED_ANSWER = [
-  "Photosynthesis ",
-  "converts light into ",
-  "chemical energy ",
-  "[1].",
-];
+const ANSWERS = {
+  photosynthesis: ["Photosynthesis ", "converts light into ", "chemical energy ", "[1]."],
+  invoice: ["The total of invoice ", "INV-2026-0042 is ", "**EUR 1,234.56** ", "[1]."],
+};
+
+function pickAnswer(body) {
+  const lastUser = (body.messages ?? []).filter((m) => m.role === "user").at(-1);
+  return /invoice|acme|total/i.test(lastUser?.content ?? "")
+    ? ANSWERS.invoice
+    : ANSWERS.photosynthesis;
+}
 
 function readBody(req) {
   return new Promise((resolve) => {
@@ -66,12 +72,13 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === "/api/chat" && req.method === "POST") {
-    await readBody(req);
+    const body = await readBody(req);
+    const answer = pickAnswer(body);
     res.writeHead(200, { "Content-Type": "application/x-ndjson" });
     let i = 0;
     const timer = setInterval(() => {
-      if (i < CANNED_ANSWER.length) {
-        res.write(`${JSON.stringify({ message: { content: CANNED_ANSWER[i] }, done: false })}\n`);
+      if (i < answer.length) {
+        res.write(`${JSON.stringify({ message: { content: answer[i] }, done: false })}\n`);
         i += 1;
       } else {
         clearInterval(timer);

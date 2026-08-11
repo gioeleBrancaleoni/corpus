@@ -39,6 +39,26 @@ test("index → ask → grounded answer → source links to the right file", asy
   );
 });
 
+test("answers a field question from the sample invoice, rendered as markdown", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("tab", { name: "Chat" }).click();
+  await page.getByLabel("Question").fill("What is the total of the ACME invoice?");
+  await page.getByRole("button", { name: "Ask" }).click();
+
+  // the streamed answer contains the field value, with **bold** rendered as
+  // <strong>, not literal asterisks
+  await expect(page.locator("strong", { hasText: "EUR 1,234.56" })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByText("**EUR")).toHaveCount(0);
+
+  // and the Sources panel links back to the invoice file
+  const firstSource = page.locator("[data-source='1']");
+  await expect(firstSource).toContainText("invoice-acme.md");
+  await firstSource.getByRole("button").click();
+  await expect(page.getByRole("heading", { name: "Invoice INV-2026-0042" })).toBeVisible();
+});
+
 test("citation chips highlight the matching source", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("tab", { name: "Chat" }).click();

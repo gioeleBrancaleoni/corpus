@@ -136,12 +136,12 @@ export function Chat({ disabled, onSources, onCiteClick }: Props) {
                     {turn.error ? (
                       <p className="text-danger">{turn.error}</p>
                     ) : (
-                      <p className="whitespace-pre-wrap">
+                      <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1.5 prose-headings:mt-3 prose-headings:mb-1.5 text-ink">
                         <AnswerText text={turn.content} onCiteClick={onCiteClick} />
                         {turn.streaming && (
                           <span className="ml-0.5 inline-block h-3.5 w-[2px] animate-pulse bg-primary align-middle" />
                         )}
-                      </p>
+                      </div>
                     )}
                   </div>
                 )}
