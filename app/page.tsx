@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { type CenterTab, CenterTabs } from "@/components/CenterTabs";
+import { Chat } from "@/components/Chat";
+import { SourcesPanel } from "@/components/SourcesPanel";
 import { EmptyState } from "@/components/EmptyState";
 import { FileTree } from "@/components/FileTree";
 import { IndexControls } from "@/components/IndexControls";
@@ -9,7 +11,7 @@ import { SettingsDialog } from "@/components/SettingsDialog";
 import { type ConnectionState, StatusDot } from "@/components/StatusDot";
 import { Viewer } from "@/components/Viewer";
 import type { TreeNode } from "@/lib/tree";
-import type { Settings } from "@/lib/types";
+import type { Settings, Source } from "@/lib/types";
 
 type TreeResponse = { ok: true; tree: TreeNode } | { ok: false; error: string };
 
@@ -21,6 +23,8 @@ export default function Home() {
   const [treeError, setTreeError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [tab, setTab] = useState<CenterTab>("viewer");
+  const [sources, setSources] = useState<Source[]>([]);
+  const [highlightedSource, setHighlightedSource] = useState<number | null>(null);
 
   const refreshConnection = useCallback(async () => {
     setConn("checking");
@@ -117,13 +121,19 @@ export default function Home() {
                 <CenterTabs tab={tab} onChange={setTab} />
               </div>
               <div className="min-h-0 flex-1">
-                {tab === "viewer" ? (
+                <div className={`h-full ${tab === "viewer" ? "" : "hidden"}`}>
                   <Viewer path={selected} />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-muted">
-                    Chat arrives with the RAG milestone.
-                  </div>
-                )}
+                </div>
+                <div className={`h-full ${tab === "chat" ? "" : "hidden"}`}>
+                  <Chat
+                    disabled={!hasRoot}
+                    onSources={(s) => {
+                      setSources(s);
+                      setHighlightedSource(null);
+                    }}
+                    onCiteClick={(n) => setHighlightedSource(n)}
+                  />
+                </div>
               </div>
             </>
           ) : (
@@ -135,8 +145,12 @@ export default function Home() {
           <div className="flex h-10 shrink-0 items-center border-b border-line px-3 text-xs font-medium text-muted">
             Sources
           </div>
-          <div className="flex-1 overflow-auto p-3 text-xs text-muted">
-            Sources for each answer will appear here.
+          <div className="min-h-0 flex-1 overflow-auto">
+            <SourcesPanel
+              sources={sources}
+              highlighted={highlightedSource}
+              onOpen={openFile}
+            />
           </div>
         </aside>
       </main>
