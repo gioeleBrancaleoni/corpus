@@ -167,7 +167,7 @@ That machine is the only thing Corpus will ever talk to.
 
 | Setting              | Default                     | Notes                                        |
 |----------------------|-----------------------------|----------------------------------------------|
-| Root folder          | *(none — set it first)*     | The only folder Corpus can read.             |
+| Root folder          | *(none — set it first)*     | The only folder Corpus can read. Changing it clears the index — press Index library again. |
 | Ollama host          | `http://localhost:11434`    | Point anywhere on your LAN.                  |
 | Chat model           | Recommended per your VRAM (see Settings) | Any model you've pulled.        |
 | Embedding model      | Recommended per your VRAM (see Settings) | Changing it rebuilds the index. |

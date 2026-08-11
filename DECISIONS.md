@@ -116,6 +116,10 @@ changes the stored representation, the `meta` table carries an `indexFormat` mar
 the same mechanism as an embedding-model change — so normalized and raw vectors are never mixed.
 `cosineSim` remains exported for tests and general use.
 
+Related invalidation: changing the **library root** in Settings also wipes the index immediately
+(same-path re-saves are detected via `path.resolve` and ignored). Otherwise chunks from the old
+root would keep surfacing in answers until the next full re-index.
+
 ## Smart upload: the model's folder suggestion is untrusted
 
 `POST /api/upload` classifies the uploaded document with the local chat model, but the returned

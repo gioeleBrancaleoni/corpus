@@ -1,6 +1,14 @@
+import path from "node:path";
 import { authorize, unauthorized } from "@/lib/auth";
 import { loadSettings, saveSettings } from "@/lib/config";
+import { openStore } from "@/lib/store";
 import type { Settings } from "@/lib/types";
+
+/** Same library root? Tolerant of trailing slashes / relative segments. */
+function sameRoot(a: string | null, b: string | null): boolean {
+  if (a === null || b === null) return a === b;
+  return path.resolve(a) === path.resolve(b);
+}
 
 export async function GET(req: Request) {
   if (!authorize(req)) return unauthorized();
@@ -49,5 +57,21 @@ export async function PUT(req: Request) {
   }
   const problem = validationError(patch);
   if (problem) return Response.json({ error: problem }, { status: 400 });
-  return Response.json(saveSettings(patch));
+
+  const before = loadSettings();
+  const saved = saveSettings(patch);
+
+  // Changing the library root invalidates the index: chunks from the old
+  // root would otherwise keep surfacing in answers until the next full
+  // re-index. Wipe now; the tree shows everything as unindexed.
+  if (patch.rootDir !== undefined && !sameRoot(before.rootDir, saved.rootDir)) {
+    const store = openStore();
+    try {
+      store.wipe();
+    } finally {
+      store.close();
+    }
+    return Response.json(saveSettings({ embedDim: null }));
+  }
+  return Response.json(saved);
 }
