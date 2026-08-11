@@ -1,0 +1,7 @@
+# Copy this file to the root of your library folder as ".corpusignore".
+# One entry per line: a file/folder name or a path relative to the library root.
+# Dotfiles and node_modules are always skipped.
+
+drafts
+private/archive
+big-export.csv
